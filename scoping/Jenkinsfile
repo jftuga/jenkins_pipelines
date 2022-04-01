@@ -1,0 +1,75 @@
+// https://stackoverflow.com/a/58952305/452281
+
+import groovy.transform.Field
+
+@Field  
+def CLASS_VAR = "CLASS"
+def METHOD_VAR = "METHOD"
+GLOBAL_VAR = "GLOBAL"
+
+def testMethod() {
+    echo  "testMethod starts:" 
+    def testMethodLocalVar = "Test_Method_Local_Var"
+    testMethodGlobalVar = "Test_Metho_Global_var"
+    echo "${CLASS_VAR}"
+    // echo "${METHOD_VAR}" //can be accessed only within pipeline run method
+    echo "${GLOBAL_VAR}"
+    echo "${testMethodLocalVar}"
+    echo "${testMethodGlobalVar}"
+    echo  "testMethod ends:" 
+}
+
+pipeline {
+    agent any
+    stages {
+         stage('parallel stage') {
+             parallel {
+                 stage('parallel one') {
+                     agent any
+                     steps {
+                        echo  "parallel one" 
+                        testMethod()
+                        echo "${CLASS_VAR}"
+                        echo "${METHOD_VAR}"
+                        echo "${GLOBAL_VAR}"
+                        echo "${testMethodGlobalVar}"
+                        script {
+                            pipelineMethodOneGlobalVar = "pipelineMethodOneGlobalVar"
+                            sh_output = sh returnStdout: true, script: 'pwd' //Declared global to access outside the script
+                        }
+                        echo "sh_output ${sh_output}"
+                     }
+                 }
+                 stage('parallel two') {
+                     agent any
+                     steps {
+                         echo  "parallel two"
+                        //  pipelineGlobalVar = "new"      //cannot introduce new variables here
+                        //  def pipelineMethodVar = "new"  //cannot introduce new variables here
+                         script { //new variable and reassigning needs scripted-pipeline
+                             def pipelineMethodLocalVar = "new";
+                             pipelineMethodLocalVar = "pipelineMethodLocalVar reassigned";
+                             pipelineMethodGlobalVar = "new" //no def keyword
+                             pipelineMethodGlobalVar = "pipelineMethodGlobalVar reassigned"
+
+                             CLASS_VAR = "CLASS TWO"
+                             METHOD_VAR = "METHOD TWO"
+                             GLOBAL_VAR = "GLOBAL TWO"
+                         }
+                        //  echo "${pipelineMethodLocalVar}" only script level scope, cannot be accessed here
+                         echo "${pipelineMethodGlobalVar}"
+                         echo "${pipelineMethodOneGlobalVar}"
+                         testMethod()
+                     }
+                 }
+             }
+         }
+         stage('sequential') {
+             steps {
+                 script {
+                     echo "sequential"
+                 }
+             }
+         }
+     }
+}
